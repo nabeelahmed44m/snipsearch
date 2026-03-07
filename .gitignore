@@ -4,46 +4,12 @@
 
 # Environments
 backend/.env
-backend/.venv
-backend/env/
-backend/venv/
-backend/ENV/
-backend/env.bak/
-backend/venv.bak/
-
-# Environment Variables mapping config
-backend/.env.local
-backend/.env.development.local
-backend/.env.test.local
-backend/.env.production.local
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.so
-
-# Distribution / packaging
-backend/.Python
-backend/build/
-backend/develop-eggs/
-backend/dist/
-backend/downloads/
-backend/eggs/
-backend/.eggs/
-backend/lib/
-backend/lib64/
-backend/parts/
-backend/sdist/
-backend/var/
-backend/wheels/
-backend/share/python-wheels/
-backend/*.egg-info/
-backend/.installed.cfg
-backend/*.egg
-backend/MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -91,7 +57,7 @@ frontend/coverage
 
 # Production
 frontend/build
-
+.DS_Store
 # Misc
 frontend/.DS_Store
 frontend/.env.local
