@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
 
+# Vercel Lambda: only /tmp is writable — point fastembed model cache there
+os.environ.setdefault("FASTEMBED_CACHE_PATH", "/tmp/fastembed_cache")
+
 # -----------------------
 # App & Model Setup
 # -----------------------
@@ -18,7 +21,12 @@ model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=_env_path)
 DATABASE_URL = os.getenv("NEON_DB_URL")
-assert DATABASE_URL, f".env not found or NEON_DB_URL missing (looked in {_env_path})"
+if not DATABASE_URL:
+    raise RuntimeError(
+        f"NEON_DB_URL environment variable is not set. "
+        f"Add it in Vercel → Project → Settings → Environment Variables. "
+        f"(Also checked local .env at: {_env_path})"
+    )
 
 engine = create_engine(
     DATABASE_URL,
