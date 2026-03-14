@@ -25,6 +25,8 @@ function SearchPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
+
   const handleSearch = async () => {
     setMessage("");
     setResults([]);
@@ -32,7 +34,7 @@ function SearchPage() {
     if (!query.trim()) { setMessage("Please enter a search query."); return; }
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/search", {
+      const res = await fetch(`${BACKEND_URL}/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

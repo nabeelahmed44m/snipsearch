@@ -6,6 +6,8 @@ function UploadPage() {
   const [msgType, setMsgType] = useState(""); // "success" | "error" | ""
   const [loading, setLoading] = useState(false);
 
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
+
   const handleUpload = async () => {
     setMessage("");
     setMsgType("");
@@ -16,7 +18,7 @@ function UploadPage() {
     }
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/upload", {
+      const response = await fetch(`${BACKEND_URL}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ snippet }),
