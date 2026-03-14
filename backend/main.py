@@ -9,8 +9,15 @@ from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
 
-# Vercel Lambda: only /tmp is writable — point fastembed model cache there
-os.environ.setdefault("FASTEMBED_CACHE_PATH", "/tmp/fastembed_cache")
+# Vercel Lambda: only /tmp is writable
+CACHE_DIR = "/tmp/fastembed_cache"
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+os.environ["FASTEMBED_CACHE_PATH"] = CACHE_DIR
+os.environ["HF_HOME"] = CACHE_DIR
+os.environ["XDG_CACHE_HOME"] = CACHE_DIR
+os.environ["NUMEXPR_MAX_THREADS"] = "1" # Optimization for Lambda
+
 
 # -----------------------
 # App & Model Setup
@@ -24,8 +31,12 @@ _model = None
 def get_model():
     global _model
     if _model is None:
-        _model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+        _model = TextEmbedding(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            cache_dir=CACHE_DIR
+        )
     return _model
+
 
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=_env_path)
