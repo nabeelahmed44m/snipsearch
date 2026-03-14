@@ -16,27 +16,42 @@ os.environ.setdefault("FASTEMBED_CACHE_PATH", "/tmp/fastembed_cache")
 # -----------------------
 
 app = FastAPI()
-model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+
+# Global variables for lazy initialization
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+    return _model
 
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=_env_path)
 DATABASE_URL = os.getenv("NEON_DB_URL")
-if not DATABASE_URL:
-    raise RuntimeError(
-        f"NEON_DB_URL environment variable is not set. "
-        f"Add it in Vercel → Project → Settings → Environment Variables. "
-        f"(Also checked local .env at: {_env_path})"
-    )
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,   # test connection before use → auto-reconnect on SSL drop
-    pool_recycle=300,     # recycle connections every 5 min (before Neon closes them)
-    pool_size=2,          # Neon serverless has low connection limits
-    max_overflow=3,
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+@app.get("/health")
+def health_check():
+    return {
+        "status": "online",
+        "database_configured": bool(DATABASE_URL),
+        "model_cached_path": os.getenv("FASTEMBED_CACHE_PATH")
+    }
+
+if not DATABASE_URL:
+    # We don't raise RuntimeError here anymore so /health can still run
+    print("CRITICAL: NEON_DB_URL is missing!")
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_size=2,
+        max_overflow=3,
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -110,6 +125,7 @@ class SnippetSearch(BaseModel):
 
 @app.post("/upload")
 def upload_snippet(data: SnippetUpload, db: Session = Depends(get_db)):
+    model = get_model()
     embedding = list(model.embed([data.snippet]))[0].tolist()
     snippet = Snippet(snippet=data.snippet, embedding=embedding)
     db.add(snippet)
@@ -120,7 +136,9 @@ def upload_snippet(data: SnippetUpload, db: Session = Depends(get_db)):
 
 @app.post("/search")
 def search_snippet(data: SnippetSearch, db: Session = Depends(get_db)):
+    model = get_model()
     query_embedding = list(model.embed([data.query]))[0].tolist()
+
 
     # ── 1. Vector path (cosine, HNSW index — no full scan) ───────────────────
     vector_rows = (
