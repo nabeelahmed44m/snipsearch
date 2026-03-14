@@ -5,7 +5,6 @@
             "src": "backend/main.py",
             "use": "@vercel/python",
             "config": {
-                "maxLambdaSize": "500mb",
                 "maxDuration": 60
             }
         }
