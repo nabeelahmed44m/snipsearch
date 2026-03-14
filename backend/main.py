@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from sqlalchemy import create_engine, Column, Integer, Text, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pgvector.sqlalchemy import Vector
@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # -----------------------
 
 app = FastAPI()
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
 
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=_env_path)
@@ -102,7 +102,7 @@ class SnippetSearch(BaseModel):
 
 @app.post("/upload")
 def upload_snippet(data: SnippetUpload, db: Session = Depends(get_db)):
-    embedding = model.encode(data.snippet).tolist()
+    embedding = list(model.embed([data.snippet]))[0].tolist()
     snippet = Snippet(snippet=data.snippet, embedding=embedding)
     db.add(snippet)
     db.commit()
@@ -112,7 +112,7 @@ def upload_snippet(data: SnippetUpload, db: Session = Depends(get_db)):
 
 @app.post("/search")
 def search_snippet(data: SnippetSearch, db: Session = Depends(get_db)):
-    query_embedding = model.encode(data.query).tolist()
+    query_embedding = list(model.embed([data.query]))[0].tolist()
 
     # ── 1. Vector path (cosine, HNSW index — no full scan) ───────────────────
     vector_rows = (
