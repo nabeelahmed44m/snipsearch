@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from fastembed import TextEmbedding
 from sqlalchemy import create_engine, Column, Integer, Text, text
@@ -57,40 +58,57 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handler to return JSON instead of "Internal Server Error" HTML
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "error": str(exc)},
+    )
+
 
 # -----------------------
 # Database Model
 # -----------------------
 
-class Snippet(Base):
-    __tablename__ = "snippets"
+if DATABASE_URL:
+    class Snippet(Base):
+        __tablename__ = "snippets"
 
-    id = Column(Integer, primary_key=True, index=True)
-    snippet = Column(Text, nullable=False)
-    embedding = Column(Vector(384))
+        id = Column(Integer, primary_key=True, index=True)
+        snippet = Column(Text, nullable=False)
+        embedding = Column(Vector(384))
 
-Base.metadata.create_all(bind=engine)
+    # Idempotent database setup
+    try:
+        with engine.connect() as conn:
+            # Enable extensions
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.commit()
+            
+        # Create tables
+        Base.metadata.create_all(bind=engine)
+        
+        with engine.connect() as conn:
+            # GIN index for full-text search
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS snippets_fts_idx
+                ON snippets USING gin(to_tsvector('english', snippet));
+            """))
 
-# Ensure all required indexes exist (idempotent)
-with engine.connect() as conn:
-    # pg_trgm extension (for filename / partial-word / number matching)
-    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+            # GIN trigram index for substring / filename matching
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS snippets_trgm_idx
+                ON snippets USING gin(snippet gin_trgm_ops);
+            """))
+            conn.commit()
+    except Exception as e:
+        print(f"Database setup failed: {e}")
 
-    # GIN index for full-text search
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS snippets_fts_idx
-        ON snippets USING gin(to_tsvector('english', snippet));
-    """))
-
-    # GIN trigram index for substring / filename matching
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS snippets_trgm_idx
-        ON snippets USING gin(snippet gin_trgm_ops);
-    """))
-    conn.commit()
 
 # -----------------------
 # Dependency
