@@ -1,18 +1,15 @@
 {
     "version": 2,
-    "builds": [
+    "rewrites": [
         {
-            "src": "backend/main.py",
-            "use": "@vercel/python",
-            "config": {
-                "maxDuration": 60
-            }
+            "source": "/(.*)",
+            "destination": "backend/main.py"
         }
     ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "backend/main.py"
+    "functions": {
+        "backend/main.py": {
+            "runtime": "@vercel/python",
+            "maxDuration": 60
         }
-    ]
+    }
 }
